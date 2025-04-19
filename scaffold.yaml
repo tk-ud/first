@@ -1,0 +1,1275 @@
+##yaml 統合版
+
+admin_ui:
+  app_scope:
+    app_id: '{{app_id}}'
+    multi_tenant: true
+  deployment:
+    auto_commit: true
+    ci_cd: github_actions
+    deploy_if_pass: true
+    deploy_trigger: deploy.yaml
+  steps:
+  - action: table_editor
+    id: 1
+    label: DB構造定義・インポート
+    name: db_structure
+    output: tables.yaml
+  - action: prompt_template_editor
+    id: 2
+    label: プロンプトテンプレート作成
+    name: prompt_definition
+    output: prompt_ver.yaml
+  - action: function_generator
+    id: 3
+    label: CRUD関数テンプレ生成
+    name: crud_function
+    output: TemplateFunction.cs
+  - action: search_generator
+    id: 4
+    label: 検索関数テンプレ生成
+    name: search_function
+    output: search_function_map.yaml
+  - action: phase_graph_editor
+    id: 5
+    label: フェーズ定義・接続編集
+    name: phase_map_editor
+    output: phase_map.yaml
+  - action: trigger_definer
+    id: 6
+    label: DBトリガー定義
+    name: trigger_define
+    output: trigger_definition.yaml
+  - action: async_function_editor
+    id: 7
+    label: Listen関数テンプレ定義
+    name: listen_function
+    output: listen_map.yaml
+  - action: trend_configurator
+    id: 8
+    label: 統計エンジン設定
+    name: statistics_engine
+    output: stat_config.yaml
+  - action: emotion_map_editor
+    id: 9
+    label: 感情エンジン設定
+    name: emotion_engine
+    output: emotion_trigger.yaml  
+  - id: 10
+    name: cognition_rule_editor
+    label: 認知照合ルール設定
+    action: cognition_rule_editor
+    output: cognition_alignment_rules.yaml
+  - id: 11
+    name: structure_loop_editor
+    label: 構造再構成ループ設定
+    action: structure_loop_editor
+    output: structure_rebuild_loop.yaml
+  - id: 12
+    name: prompt_version_manager
+    label: プロンプトバージョン管理
+    action: prompt_version_manager
+    output: prompt_ver.yaml
+  - id: 13
+    name: trigger_map_viewer
+    label: トリガーマップ確認
+    action: trigger_map_viewer
+    output: trigger_map.yaml
+
+  cognition_alignment_rules:
+  delta_threshold: 0.05
+  alignment_score_min: 0.95
+  max_retry: 2
+  actions:
+    on_success: proceed_to_generation
+    on_failure: regenerate_prompt
+  log_format:
+    input_vector: '[meaning, reason, change]'
+    output_vector: '[meaning, reason, change]'
+    delta: abs(vec1 - vec2)
+    alignment_score: 1 - norm(delta)
+    result: accepted | rejected
+deploy_template:
+  app_id: <APP_ID>
+  phase_map_id: <PHASE_MAP_ID>
+  target_file: <FILE_PATH>
+  modification_type: function | prompt_ver | db_trigger
+  test_condition:
+    score_delta: '> 0.2'
+    cognition_aligned: true
+  rollback_policy:
+    on_failure: revert
+    max_attempts: 3
+emotion_variable_rules:
+  dopamine_range:
+  - 0.0
+  - 1.0
+  stress_range:
+  - 0.0
+  - 1.0
+  stress_thresholds:
+    warning: 0.6
+    critical: 0.8
+  reaction_rules:
+    increase_dopamine_on_success: true
+    increase_stress_on_error: true
+    reset_stress_on_acknowledgment: true
+engine_services:
+  cognition_engine:
+    file: CognitionService.cs
+    functions:
+    - input:
+        input_vector: FLOAT[3]
+        output_vector: FLOAT[3]
+        threshold: FLOAT
+      name: EvaluateCognitionAlignment
+      output:
+        delta: FLOAT
+        result: TEXT
+    - input:
+        delta: FLOAT
+        input_vector: FLOAT[3]
+        output_vector: FLOAT[3]
+        phase_map_id: UUID
+      name: LogCognitionDelta
+      output:
+        success: BOOLEAN
+  emotion_engine:
+    file: EmotionService.cs
+    functions:
+    - input:
+        app_id: UUID
+        delta:
+          dopamine: FLOAT
+          stress: FLOAT
+        phase_mapping_id: UUID
+      name: UpdateEmotion
+      output:
+        updated: BOOLEAN
+    - input:
+        app_id: UUID
+      name: NormalizeEmotion
+      output:
+        zscore_vector: FLOAT[]
+  maintenance_scheduler:
+    file: MaintenanceService.cs
+    functions:
+    - input:
+        datetime: TIMESTAMP
+      name: DailyStatisticalCheck
+      output:
+        status: TEXT
+    - input:
+        app_id: UUID
+      name: TriggerRecalibration
+      output:
+        result: TEXT
+  ml_evaluation_engine:
+    file: MLEvaluationService.cs
+    functions:
+    - input:
+        llm_output: JSONB
+        model_output: JSONB
+      name: ScoreDiffAgainstLLM
+      output:
+        diff_score: FLOAT
+    - input:
+        model_id: INT
+      name: EvaluateModelFit
+      output:
+        fit_score: FLOAT
+        train_count: INT
+  prompt_validation_engine:
+    file: PromptVerifier.cs
+    functions:
+    - input:
+        prompt_a: TEXT
+        prompt_b: TEXT
+      name: ComparePromptVectors
+      output:
+        alignment_score: FLOAT
+  sourcecode_diagnostic_engine:
+    file: SourceCodeEvaluator.cs
+    functions:
+    - input:
+        source_id: UUID
+      name: EvaluateSourceDiff
+      output:
+        change_score: FLOAT
+        errorcount: INT
+    - input:
+        source_id: UUID
+        test_score: FLOAT
+      name: LogTestResults
+      output:
+        success: BOOLEAN
+  statistics_engine:
+    file: StatisticsService.cs
+    functions:
+    - input:
+        phase_id: INT
+      name: DetectTrend
+      output:
+        trend_direction: TEXT
+        trend_score: FLOAT
+    - input:
+        degree: INT
+        threshold: FLOAT
+        x: FLOAT[]
+        y: FLOAT[]
+      name: DetectSpike
+      output:
+        depth_score: FLOAT
+        spike: BOOLEAN
+tables:
+- columns:
+  - name: id
+    note: アプリケーションID
+    type: UUID
+  - name: name
+    type: TEXT
+  - name: env
+    type: JSONB
+  name: application
+- columns:
+  - name: id
+    type: UUID
+  - name: app_id
+    reference: application.id
+    type: UUID
+  - name: endpoint
+    type: TEXT
+  - name: phase
+    type: DECIMAL
+  - name: function
+    type: TEXT
+  name: app_endpoint
+- columns:
+  - name: id
+    type: UUID
+  - name: app_id
+    reference: application.id
+    type: UUID
+  - name: phase
+    type: DECIMAL
+  - name: endpoint_name
+    type: TEXT
+  - name: created_at
+    type: TIMESTAMP
+  - name: yamls_ver_id
+    reference: yamls_ver.id
+    type: UUID
+  name: phase_map
+- columns:
+  - name: id
+    type: UUID
+  - name: table_name
+    type: TEXT
+  - name: entity_id
+    type: UUID
+  - name: phase
+    type: DECIMAL
+  - name: error_count
+    type: INTEGER
+  - name: updated_at
+    type: TIMESTAMP
+  - name: phase_map_id
+    reference: phase_map.id
+    type: UUID
+  name: phase_mapping
+- columns:
+  - name: id
+    type: UUID
+  - name: function_name
+    type: TEXT
+  - name: req_type
+    type: TEXT
+  - name: res_type
+    type: TEXT
+  - name: request
+    type: JSONB
+  - name: response
+    type: JSONB
+  - name: score
+    type: FLOAT
+  - name: phase_mapping_id
+    reference: phase_mapping.id
+    type: UUID
+  - name: created_at
+    type: TIMESTAMP
+  name: functionScore
+- columns:
+  - name: id
+    type: UUID
+  - name: app_id
+    type: UUID
+  - name: phase_mapping_id
+    type: UUID
+  - name: emotion_variable
+    type: TEXT
+  - name: delta
+    type: FLOAT
+  - name: created_at
+    type: TIMESTAMP
+  name: emotion_log
+- columns:
+  - name: id
+    type: SERIAL
+  - name: app_id
+    type: UUID
+  - name: table_name
+    type: TEXT
+  - name: score
+    type: FLOAT
+  - default: false
+    name: is_local
+    type: BOOLEAN
+  - default: false
+    name: start
+    type: BOOLEAN
+  - name: started_at
+    type: TIMESTAMP
+  - default: now()
+    name: created_at
+    type: TIMESTAMP
+  name: MLmodel
+- columns:
+  - name: id
+    type: SERIAL
+  - name: app_id
+    type: UUID
+  - name: model_id
+    reference: MLmodel.id
+    type: INTEGER
+  - name: prompt_ver_id
+    reference: prompt_ver.id
+    type: INTEGER
+  - name: train_start
+    type: TIMESTAMP
+  - name: train_end
+    type: TIMESTAMP
+  - name: train_count
+    type: INT
+  - name: avg_diff_score
+    type: FLOAT
+  - name: integral_score
+    type: FLOAT
+  - name: delta_avg
+    type: FLOAT
+  - name: accel_avg
+    type: FLOAT
+  - default: now()
+    name: created_at
+    type: TIMESTAMP
+  name: MLmodelEvaluation
+- columns:
+  - name: id
+    type: UUID
+  - name: phase_mapping_id
+    reference: phase_mapping.id
+    type: UUID
+  - name: trigger_type
+    type: TEXT
+  - name: status
+    type: TEXT
+  - name: created_at
+    type: TIMESTAMP
+  name: trigger_map
+- columns:
+  - name: id
+    type: UUID
+  - name: name
+    type: TEXT
+  - name: app_id
+    reference: application.id
+    type: UUID
+  - name: file_path
+    type: TEXT
+  - name: content
+    type: TEXT
+  - name: hash
+    type: TEXT
+  - name: version
+    type: TEXT
+  - name: created_at
+    type: TIMESTAMP
+  name: yamls_ver
+- columns:
+  - name: id
+    type: UUID
+  - name: app_id
+    note: nullなら全アプリ共通（システム定義）
+    nullable: true
+    type: UUID
+  - name: name
+    note: エイリアス名（例：translate, classify）
+    type: TEXT
+  - name: url
+    type: TEXT
+  - name: method
+    type: TEXT
+  - name: headers
+    nullable: true
+    type: JSONB
+  - name: description
+    type: TEXT
+  - name: created_at
+    type: TIMESTAMP
+  name: external_api_registry
+- columns:
+  - name: id
+    type: UUID
+  - name: app_id
+    note: null許容でシステム起因ログも保持
+    nullable: true
+    type: UUID
+  - name: registry_id
+    reference: external_api_registry.id
+    type: UUID
+  - name: request
+    type: JSONB
+  - name: response
+    type: JSONB
+  - name: status_code
+    type: INTEGER
+  - name: executed_by
+    note: 呼び出し元関数またはエンジン名
+    type: TEXT
+  - name: phase_mapping_id
+    nullable: true
+    type: UUID
+  - name: executed_at
+    type: TIMESTAMP
+  - default: false
+    name: isDelete
+    type: BOOLEAN
+  name: external_api_log
+- columns:
+  - name: id
+    type: UUID
+  - name: app_id
+    type: UUID
+  - name: target_table
+    type: TEXT
+  - name: trigger_name
+    type: TEXT
+  - name: value
+    type: TEXT
+  - name: bool
+    type: BOOLEAN
+  - name: created_at
+    type: TIMESTAMP
+  name: dblog
+- columns:
+  - name: id
+    type: UUID
+  - name: app_id
+    type: UUID
+  - name: phase_mapping_id
+    type: UUID
+  - name: error_message
+    type: TEXT
+  - name: created_at
+    type: TIMESTAMP
+  name: error_log
+- columns:
+  - name: id
+    type: SERIAL
+  - name: modelname
+    note: モデル識別名
+    type: TEXT
+  - default: 0
+    name: generate_count
+    type: INT
+  - default: 0
+    name: accept_count
+    type: INT
+  - default: now()
+    name: created_at
+    type: TIMESTAMP
+  name: MLtemplate
+- columns:
+  - name: id
+    type: SERIAL
+  - name: app_id
+    type: UUID
+  - name: table_name
+    type: TEXT
+  - name: target_column
+    type: JSONB
+  - name: features
+    type: JSONB
+  - name: MLmodelId
+    type: INTEGER
+  - default: false
+    name: hidden
+    type: BOOLEAN
+  - default: now()
+    name: created_at
+    type: TIMESTAMP
+  name: MLmodelGeneratePrompt
+- columns:
+  - name: id
+    type: SERIAL
+  - name: app_id
+    type: UUID
+  - name: model_id
+    reference: MLmodel.id
+    type: INTEGER
+  - name: req
+    type: JSONB
+  - name: res
+    type: JSONB
+  - name: diff_score
+    type: FLOAT
+  - default: now()
+    name: created_at
+    type: TIMESTAMP
+  name: MLmodelLog
+- columns:
+  - name: id
+    type: UUID
+  - name: app_id
+    type: UUID
+  - name: static_prompt
+    type: TEXT
+  - name: dynamic_prompt
+    type: TEXT
+  - name: diff
+    type: TEXT
+  - name: MLtemplateId
+    type: INTEGER
+  name: prompt_ver
+- columns:
+  - name: id
+    type: UUID
+  - name: ver_id
+    type: UUID
+  - name: phase
+    type: DECIMAL
+  name: prompt
+- columns:
+  - name: id
+    type: UUID
+  - name: phase_map_id
+    type: UUID
+  - name: table
+    type: TEXT
+  - name: column
+    type: TEXT
+  - name: item_id
+    type: UUID
+  - name: input_vector
+    type: FLOAT[]
+  - name: output_vector
+    type: FLOAT[]
+  - name: delta
+    type: FLOAT
+  - name: triggered_by
+    type: TEXT
+  - name: decision
+    type: TEXT
+  - name: timestamp
+    type: TIMESTAMP
+  name: cognition_log
+- columns:
+  - name: id
+    type: UUID
+  - name: app_id
+    type: UUID
+  - name: name
+    type: TEXT
+  - name: source_code_text
+    type: TEXT
+  - name: diff
+    type: TEXT
+  name: sourceCode
+- columns:
+  - name: id
+    type: UUID
+  - name: app_id
+    type: UUID
+  - name: errorcount
+    type: INT
+  - name: errorScore
+    type: FLOAT
+  - name: testResults
+    type: BOOLEAN
+  name: repiarsource
+- columns:
+  - name: id
+    type: UUID
+  - name: app_id
+    type: UUID
+  - name: source_id
+    reference: sourceCode.id
+    type: UUID
+  - name: testScore
+    type: FLOAT
+  name: testResults
+- columns:
+  - name: id
+    type: UUID
+  - name: app_id
+    type: UUID
+  - name: error_message
+    type: TEXT
+  - name: timestamp
+    type: TIMESTAMP
+  - name: source_id
+    nullable: true
+    type: UUID
+  name: testerrorlog
+- columns:
+  - name: id
+    type: UUID
+  - name: app_id
+    type: UUID
+  - name: table_name
+    type: TEXT
+  - name: operation
+    type: TEXT
+  - name: payload
+    type: JSONB
+  - name: success
+    type: BOOLEAN
+  - name: timestamp
+    type: TIMESTAMP
+  - name: source_id
+    nullable: true
+    type: UUID
+  name: testDblog
+external_api_registry:
+- id: 1
+  name: OpenAI GPT-4
+  base_url: https://api.openai.com/v1/chat/completions
+  model: gpt-4
+  license_policy: commercial_allowed
+  usage_restrictions: No redistribution of full outputs
+  auth_required: true
+- id: 2
+  name: Anthropic Claude
+  base_url: https://api.anthropic.com/v1/complete
+  model: claude-2
+  license_policy: commercial_prohibited
+  auth_required: true
+functionscore_policy:
+  record_on_phase: true
+  exclude_from_ml_if_differs_from_output: true
+  emotion_score_influence: false
+  aggregation_method: rolling_average
+  evaluation_interval: 5
+init_sequence:
+- description: "\u69CB\u9020\u5B9A\u7FA9\uFF08\u5168\u30C6\u30FC\u30D6\u30EB\u306E\
+    CREATE\uFF09"
+  file: init_mfc_structure.sql
+  step: 1
+- description: "\u30A2\u30D7\u30EA\u30B1\u30FC\u30B7\u30E7\u30F3\u57FA\u672C\u60C5\
+    \u5831"
+  file: insert_application.sql
+  step: 2
+- description: "\u69CB\u9020YAML\u30D0\u30FC\u30B8\u30E7\u30F3\u3068\u5185\u5BB9\u767B\
+    \u9332"
+  file: insert_yamls_ver.sql
+  step: 3
+- description: "\u30D5\u30A7\u30FC\u30BA\u30DE\u30C3\u30D4\u30F3\u30B0\u5B9A\u7FA9"
+  file: insert_phase_map.sql
+  step: 4
+- description: "\u30D7\u30ED\u30F3\u30D7\u30C8\u30D0\u30FC\u30B8\u30E7\u30F3\u5B9A\
+    \u7FA9"
+  file: insert_prompt_ver.sql
+  step: 5
+- description: "\u521D\u671F\u30D7\u30ED\u30F3\u30D7\u30C8\u767B\u9332"
+  file: insert_prompt.sql
+  step: 6
+- description: "ML\u30C6\u30F3\u30D7\u30EC\u30FC\u30C8\u3068\u521D\u671F\u30E2\u30C7\
+    \u30EB"
+  file: insert_mltemplate.sql
+  step: 7
+- description: "\u5916\u90E8API\u30EC\u30B8\u30B9\u30C8\u30EA\u306E\u521D\u671F\u5B9A\
+    \u7FA9"
+  file: insert_external_api_registry.sql
+  step: 8
+- description: "\uFF08\u958B\u767A\u6642\u306E\u307F\uFF09\u30C6\u30B9\u30C8\u69CB\
+    \u9020\u306E\u30ED\u30B0\u521D\u671F\u5316"
+  file: insert_testserver.sql
+  optional: true
+  step: 9
+- step: 10
+  description: "\u8A8D\u77E5\u7167\u5408\u30EB\u30FC\u30EB\u8A2D\u5B9A"
+  file: insert_cognition_alignment_rules.sql
+- step: 11
+  description: "\u69CB\u9020\u518D\u69CB\u6210\u30EB\u30FC\u30EB\u8A2D\u5B9A"
+  file: insert_structure_rebuild_loop.sql
+- step: 12
+  description: "\u30D7\u30ED\u30F3\u30D7\u30C8\u30D0\u30FC\u30B8\u30E7\u30F3\u7BA1\
+    \u7406\uFF08\u62E1\u5F35\uFF09"
+  file: insert_prompt_ver_schema.sql
+- step: 13
+  description: "\u30C8\u30EA\u30AC\u30FC\u30DE\u30C3\u30D7\u5206\u985E\u62E1\u5F35"
+  file: insert_trigger_map_schema.sql
+- step: 14
+  description: "\u611F\u60C5\u5909\u6570\u30EB\u30FC\u30EB\u8A2D\u5B9A"
+  file: insert_emotion_variable_rules.sql
+- step: 15
+  description: "FunctionScore\u8A18\u9332\u30DD\u30EA\u30B7\u30FC"
+  file: insert_functionscore_policy.sql
+- step: 16
+  description: "\u8A18\u9332\u5BFE\u8C61\u3068\u9664\u5916\u30DD\u30EA\u30B7\u30FC"
+  file: insert_recording_principles.sql
+- step: 17
+  description: "Deploy\u30C6\u30F3\u30D7\u30EC\u30FC\u30C8\u69CB\u6210"
+  file: insert_deploy_template.sql
+- step: 18
+  description: "ML\u30C6\u30F3\u30D7\u30EC\u30FC\u30C8\u69CB\u9020\u5B9A\u7FA9"
+  file: insert_ml_model_template.sql
+- step: 19
+  description: "\u5916\u90E8API\u30EC\u30B8\u30B9\u30C8\u30EA\u5B9A\u7FA9"
+  file: insert_external_api_registry.sql
+- step: 20
+  description: "LLM\u30D7\u30ED\u30AD\u30B7\u69CB\u9020\u5B9A\u7FA9"
+  file: insert_llm_proxy.sql
+policy:
+  overview: "\u3053\u306Einit_sequence\u306F\u3001MFC\u69CB\u9020\u306B\u304A\u3051\
+    \u308B\u521D\u671F\u5316SQL\u30D5\u30A1\u30A4\u30EB\u306E\u5B9F\u884C\u9806\u5E8F\
+    \u3092\u5B9A\u7FA9\u3057\u307E\u3059\u3002 \u5404SQL\u30D5\u30A1\u30A4\u30EB\u306F\
+    YAML\u30D9\u30FC\u30B9\u306E\u69CB\u9020\u30FB\u30C7\u30FC\u30BF\u5B9A\u7FA9\u306B\
+    \u5BFE\u5FDC\u3057\u3066\u304A\u308A\u3001CI/CD\u3067\u81EA\u52D5\u5C55\u958B\u304C\
+    \u53EF\u80FD\u3067\u3059\u3002\n"
+  sources:
+  - er_model: er_model.yaml
+  - phase_map: phases_model.yaml
+  - prompts: prompt_ver.yaml, prompt.yaml
+  - sql_generation: "yaml2sql.py\uFF08\u5225\u9014\u5B9A\u7FA9\uFF09"
+  execution_guidelines:
+  - "\u3059\u3079\u3066\u306EDDL\u306F step": "1\uFF08init_mfc_structure.sql\uFF09\
+      \u3067\u4F5C\u6210\u3055\u308C\u308B"
+  - "\u5404DML\u306F application \u2192 yamls_ver \u2192 phase_map \u2192 prompt_ver\
+    \ \u306E\u9806\u3067\u4F9D\u5B58\u6027\u3092\u4FDD\u3064"
+  - step: "9 \u306F\u958B\u767A\u30E2\u30FC\u30C9\u5C02\u7528\u3067\u3001\u672C\u756A\
+      \u3067\u306F\u30B9\u30AD\u30C3\u30D7\u3055\u308C\u308B"
+  - "\u5404INSERT SQL\u306F\u500B\u5225YAML\u304B\u3089\u81EA\u52D5\u751F\u6210\u3055\
+    \u308C\u308B\u524D\u63D0\uFF08\u624B\u66F8\u304D\u306F\u4E0D\u8981\uFF09"
+  deployment_tip:
+  - "GitHub Actions\u3084docker-entrypoint\u3067\u3053\u306E\u30D5\u30A1\u30A4\u30EB\
+    \u306B\u5F93\u3044\u3001\u9806\u6B21\u5B9F\u884C\u3055\u305B\u308B"
+llm_proxy:
+  default_model: gpt-4
+  available_models:
+  - name: gpt-4
+    provider: OpenAI
+    max_tokens: 4096
+    licensed_for_commercial: true
+    proxy_route: /llm/openai
+  - name: claude-2
+    provider: Anthropic
+    max_tokens: 10000
+    licensed_for_commercial: false
+    proxy_route: /llm/claude
+mfc_cluster:
+  version: v1.0
+  layers:
+    minimal_api:
+      - CRUDFunction
+      - ListenAPI
+
+    operational_api:
+      - name: StatisticsEngine
+        output: stat_config.yaml
+      - name: MLTrainingCenter
+        output: ml_training.yaml
+      - name: ExternalPromptAPI
+      - name: TestServer
+      - name: SourceGenerator
+      - name: DeepDiagnosticCenter
+      - name: TemplateArchiveManager
+      - name: UIEventListener
+
+    databases:
+      - name: log_db
+        role: central_structure_log
+        includes:
+          - phase_mapping
+          - dblog
+          - error_log
+          - functionScore
+      - name: application_db
+        role: runtime_state
+        includes:
+          - application
+          - app_endpoint
+      - name: dev_server_db
+        role: testing_and_source_analysis
+        includes:
+          - sourceCode
+          - repiarsource
+          - testResults
+          - testerrorlog
+          - testDblog
+      - name: archive_db
+        optional: true
+        role: yaml_diff_archive
+      - name: admin_registry
+        role: tenant_registration
+        includes: [application]
+
+  bootstrap_api:
+    name: ApplicationRegistrationAPI
+    input:
+      - name
+      - env
+      - auth_key (optional)
+    output:
+      - app_id
+      - registered_endpoints
+project: mfc-bootstrap
+services:
+- name: api
+  description: Main .NET Core API
+  path: dotnet_api/
+  build_context: ./dotnet_api
+  dockerfile: Dockerfile
+  port: 8080
+- name: front
+  description: React frontend (Vite + Nginx)
+  path: ui/
+  build_context: ./ui
+  dockerfile: Dockerfile
+  port: 3000
+- name: ml_center
+  description: Flask ML model engine
+  path: api_flask/
+  build_context: ./api_flask
+  dockerfile: Dockerfile
+  port: 5001
+- name: deep_diagnostic
+  description: Structure diagnostic and rebuild assistant
+  path: deep_diagnostic/
+  build_context: ./deep_diagnostic
+  dockerfile: Dockerfile
+  port: 5002
+- name: template_archive
+  description: YAML version archive and template repo
+  path: template_archive/
+  build_context: ./template_archive
+  dockerfile: Dockerfile
+  port: 5003
+- name: llm_proxy
+  description: LLM integration proxy (OpenAI, Claude, etc)
+  path: llm_proxy/
+  build_context: ./llm_proxy
+  dockerfile: Dockerfile
+  port: 5100
+shared:
+  db:
+    service: postgres
+    volumes:
+    - ./DB/init/:/docker-entrypoint-initdb.d/
+    databases:
+    - log_db
+    - application_db
+    - dev_server_db
+    - archive_db
+    - admin_registry
+  nginx:
+    path: ui/nginx.conf
+    port: 80
+ml_model_template:
+  modelname: string
+  generate_count: 0
+  accept_count: 0
+  features:
+  - input1
+  - input2
+  target_column: output
+  score: null
+  is_local: false
+  prompt_ver_id: null
+phase_map:
+  id: SERIAL
+  app_id: UUID
+  phase: TEXT
+  endpoint: TEXT
+  method: TEXT
+  function: TEXT
+  table: TEXT
+  prompt_ver_id: INT
+  generated_by: ENUM('user', 'O1', 'Deep')
+  created_at: TIMESTAMP
+phase_map:
+- phase: '1.1'
+  app_id: <APP_ID_PLACEHOLDER>
+  endpoint: /api/task/create
+  method: POST
+  function: CreateTask
+  table: task
+  prompt_ver_id: <PROMPT_VER_ID_PLACEHOLDER>
+- phase: '1.2'
+  endpoint: /api/task/summary
+  method: POST
+  function: SummarizeTask
+  prompt_ver_id: <PROMPT_VER_ID_PLACEHOLDER>
+api_endpoint: /api/task/create     # エンドポイントURL（固定マッピング）
+
+phase: 2.1                         # 構造フェーズID（静的定義、phase_map.yaml対応）
+table: task                        # 対象テーブル（CRUD/Search対象）
+function: CreateTask               # 呼び出される関数（FunctionBase.csで定義）
+
+function_type: CRUD                # 固定分類（CRUD / Search / ExternalAPI）
+
+app_scope:
+  app_id: "{{app_id}}"             # 実行中アプリケーションID（リクエストヘッダやTokenから取得）
+  emotion_engine: true             # 感情エンジン使用有無（application単位で割当）
+
+execution:
+  db_write: true                   # DBにINSERT/UPDATEなどの操作を行う
+  score_record: true               # functionScore に記録される
+  emotion:                         # 感情変数変動（EmotionEngineRegistryに加算）
+    dopamine: +0.3
+    stress: -0.1
+
+  external_api:                    # 外部API呼び出し（ExternalAPI型 or 複合構造時）
+    url: https://external.service.com/analyze
+    method: POST
+    payload: "{{request}}"
+    on_success:
+      db_write: true
+      engines: [cognition, stats]  # 認知エンジン・統計エンジンの処理呼び出し
+
+triggers:
+  db_trigger:                      # DB操作後に発火されるトリガー定義
+    target_table: task
+    trigger_name: task_inserted
+    on_fire:
+      notify: "phase_admin"        # 通知対象（UI/Slack等）
+      update: "status=queued"      # トリガー後の状態変化
+
+listen:
+  on_trigger: task_inserted        # trigger_map で起動される Listenフェーズのトリガー条件
+  actions:
+    - notify_admin: true           # 通知送信（UI, Slack等）
+    - call_function: RecalculateStats  # 関数呼出（FunctionBaseに定義された統計再計算など）
+modifiability_policy:
+  immutable_structures:
+    - phase_mapping           # 構造記録（トリガーで自動挿入、ユーザー操作不可）
+    - functionScore           # 出力スコア（自動記録、編集不可）
+    - emotion_log             # 感情変動（操作トリガーから自動、手動変更不可）
+    - dblog                   # DB操作履歴（triggerによる不可視ログ）
+    - error_log               # 異常記録（triggerによる、構造診断に使用）
+
+  editable_by_user_or_ai:
+    - TemplateFunction.cs     # 構造実装本体（CRUD/Search/ExternalAPIなど）
+    - prompt_ver              # プロンプトバージョン管理
+    - prompt                  # 個別のプロンプトテンプレート
+    - user_defined_triggers   # 構造に影響しないトリガー（通知、履歴補足など）
+    - phase_map.yaml          # 構造マッピング定義（AI編集対象、ver管理前提）
+
+policy_notes:
+  - phase_mapping および functionScore 等は DBトリガーによって構造的に記録され、関数内部やAPIからは直接制御できません
+  - 感情変動（emotion_log）は UI/関数経由で起きるが、現在値は保持されず、レジストリ管理されます
+  - AIおよびユーザーは、定義済みの関数とプロンプト構造、外部APIとの連携部分のみを修正できます
+prompt_ver:
+  id: SERIAL
+  app_id: UUID
+  version: TEXT
+  prompt_text: TEXT
+  diff: TEXT (optional)
+  classification: TEXT (optional)
+  ver_id_parent: INT (nullable)
+  model_type: TEXT (optional)
+  source: ENUM('user', 'O1', 'cognition_engine')
+  created_at: TIMESTAMP
+prompt_ver:
+  id: SERIAL
+  app_id: UUID
+  version: TEXT
+  prompt_text: TEXT
+  diff: TEXT (optional)
+  classification: TEXT (optional)
+  ver_id_parent: INT (nullable)
+  model_type: TEXT (optional)
+  created_at: TIMESTAMP
+recording_principles:
+  log_types:
+    error_log: true
+    function_log: true
+    cognition_log: true
+    ml_log: true
+    emotion_log: true
+  exclusion_rules:
+    system_triggered: false
+    low_score_below: 0.1
+    test_mode: false
+  retention_days:
+    default: 90
+    critical_logs: 365
+structure_rebuild_rules:
+  error_log:
+    threshold_per_week: 10
+  ml_evaluation:
+    integral_score_min: 0.3
+    accel_avg_max: 0.4
+  emotion_log:
+    stress_peak_limit: 3
+    motivation_min: 0.4
+  function_score:
+    no_improvement_count: 3
+  cognition_log:
+    action: prompt_ver.diff_only
+    note: "\u8A8D\u77E5\u30BA\u30EC\u306Fprompt\u4FEE\u6B63\u306E\u307F\u3092\u8A98\
+      \u5C0E\u3057\u3001\u69CB\u9020\u4FEE\u6B63\u306F\u884C\u308F\u306A\u3044"
+trigger_map:
+  id: SERIAL
+  phase_map_id: INT
+  trigger_type: ENUM('error_spike', 'emotion_spike', 'ml_drift', 'prompt_patch')
+  source: ENUM('deep', 'O1', 'cognition_engine', 'scheduler')
+  created_at: TIMESTAMP
+  status: ENUM('active', 'executed', 'retry_limit_exceeded')
+trigger_map:
+- id: 1
+  app_id: <APP_ID_PLACEHOLDER>
+  phase_map_id: <PHASE_MAP_ID_PLACEHOLDER>
+  trigger_type: prompt_patch
+  source: cognition_engine
+  status: active
+  created_at: <AUTO_TIMESTAMP>
+stream_ai_emotion_system: description: > リアルタイムYouTube配信において、視聴者のコメントと配信者の音声を分析し、 意図補完・重要コメント抽出・感謝応答・感情可視化をOBSへ返すAIエンジン構成。
+
+components: websocket_trigger: event: stream_start action: connect_to_stream protocol: WebSocket note: YouTube配信開始と同時にAI連携処理が始まる
+
+comment_collector:
+  method: polling
+  interval_sec: 60
+  source: YouTube Live Chat API
+  output: raw_comment_list
+
+activity_detector:
+  method: n-order-curve-differentiation
+  target: comment_volume
+  detect: slope_threshold
+  notify: obs_trigger_10sec_before_peak
+
+speech_transcriber:
+  tool: whisper.cpp
+  model: medium
+  input: OBS_audio_stream
+  output: transcribed_text
+
+meaning_merger:
+  inputs:
+    - raw_comment_list
+    - transcribed_text
+  output: merged_context_block
+  process: temporal_segmentation + intent_matching
+
+important_comment_selector:
+  model: intent_scoring + meaning_alignment
+  input: merged_context_block
+  output: high_value_comments
+  response: generate_thank_you_message
+
+sentiment_classifier:
+  model: sentiment_binary or multi-label
+  input: raw_comment_list
+  output:
+    - pos_score
+    - neg_score
+    - dominant
+    - trend
+
+emotion_vectorizer:
+  input:
+    - pos_score
+    - neg_score
+    - trend
+  output: emotion_vector
+  format: [happy, angry, sad, surprised, neutral]
+
+obs_controller:
+  inputs:
+    - emotion_vector
+    - high_value_comments
+    - thank_you_message
+  output:
+    - character_expression_overlay
+    - comment_display
+    - optional_audio_trigger
+  protocol: OBS WebSocket
+
+security: log_sanitization: true message_throttle: true emotion_anomaly_check: true
+
+
+model:
+  name: TK_Intent_Preservation_Model
+  description: >
+    入力文の意図明確度に応じて出力補完度を調整する保存則型認知補完モデル。
+    意図明確度 (H_in) と背景補完度 (B_out) の合計を1.0に近づける設計。
+    本モデルは、従来の「意味 = 変化 × 根拠」方程式に基づくズレ検出ロジックと統合され、
+    意味保存ベースで動的に補完強度を調整し、応答の整合性と精度を高めるために使用される。
+
+parameters:
+  intent_clarity_score:
+    symbol: H_in
+    type: float
+    range: [0.0, 1.0]
+    description: >
+      入力文の意図・目的・構造の明確さスコア。
+      認知ベクトル内の Meaning 成分と整合する。
+  background_completion_score:
+    symbol: B_out
+    type: float
+    range: [0.0, 1.0]
+    formula: 1.0 - H_in
+    description: >
+      入力の曖昧さに応じて出力時に補完するべき推論背景情報の度合い。
+      H_in との合計が1.0に収束するよう調整される。
+
+rules:
+  - name: meaning_preservation
+    logic: H_in + B_out ≈ 1.0
+    tolerance: 0.05
+    description: 意味密度の保存則に従い、意味の明確度と補完量の合計を1に保つ。
+  - name: adaptive_completion
+    trigger: H_in < 0.7
+    action: 強めの補完（例示、明確化、再解釈など）を出力に追加
+    fallback: H_in < 0.3 の場合、clarification prompt を優先的に提案
+  - name: minimal_completion
+    trigger: H_in ≥ 0.9
+    action: 出力補完を省略し、簡潔な応答にする
+
+output_guidelines:
+  - completeness: 意図明確度が低い場合は、背景や意図を推論して補完すること
+  - conciseness: 明確な入力には冗長な補足を避け、簡潔に返す
+  - coherence: 意図補完に際して、出力は論理的に整合するよう調整する
+  - delta_alignment: >
+      Meaning, Reason, Change の3軸認知ベクトルの差分 Δ に基づき、出力整合度を再評価し、
+      Δ > 0.05 の場合は再構成または補完強化を実行
+
+integration:
+  cognition_vector_model:
+    vector: [meaning, reason, change]
+    normalization: max-scale (0.0 - 1.0)
+    formula: meaning = change × reason
+    delta_calculation: Δ = actual_meaning - (change × reason)
+    delta_threshold: 0.05
+    alignment_action:
+      if delta <= threshold: proceed
+      else: trigger = "recompose_prompt"
+
+  fact_mapping:
+    coordinate_system: (M_cog, M_fact)
+    interpretation:
+      "+/+" : 共感・納得
+      "+/-" : 誤解・思い込み
+      "-/+" : 過小認知・情報不足
+      "-/-" : 無関心・棄却
+
+examples:
+  - input: "明日さ、あれ頼むわ"
+    H_in: 0.3
+    B_out: 0.7
+    expected_output: >
+      “あれ”が何を指しているのか教えてもらえますか？たとえば、書類の提出のことですか？
+  - input: "明日の会議でAI活用について話してほしい"
+    H_in: 0.95
+    B_out: 0.05
+    expected_output: >
+      了解しました。明日の会議でAI活用について発表します。
+
+notes:
+  - 保存則モデルは、認知ズレ検出（Δ）と補完戦略の橋渡しとして機能する
+  - 意味構造の変形に対して出力の補完量を動的に調整することにより、
+    冗長・過剰・過小な応答を避けることが可能
+  - このモデルは phase_map_id 単位の cognition_log に統合可能
+
+modules:
+  - name: IntentClassifier
+    input: prompt_text
+    output: H_in
+    model: BERT / RoBERTa / custom transformer
+    usage: 補完量決定用の前処理スコア（inference time）
+
+  - name: MeaningEvaluator
+    input: output_vector, change_vector, reason_vector
+    output: ΔMeaning
+    usage: 出力整合性検証・再出力トリガー・学習時損失関数
+
+architecture:
+  preprocessing_module:
+    name: IntentClassifier
+    role: 入力文から意図明確度 H_in を推定し、補完量 B_out を決定する
+    input: prompt_text
+    output: H_in
+    model: transformer_encoder
+    phase: input_preprocessing
+
+  postprocessing_module:
+    name: MeaningEvaluator
+    role: 出力が構造的に意図と一致しているか（ΔMeaning）を検証する
+    input: output_meaning_vector, change, reason
+    output: delta_meaning
+    logic: ΔMeaning = |M_out - (Change × Reason)|
+    phase: output_evaluation
+legal_notes:
+  - purpose_limitation: >
+      本システムにおける意図明確度（H_in）は入力構文の分類に限定されており、
+      ユーザーの個人特性・思想・性格分類を目的としない。
+  - interpretability: >
+      意味補完および出力評価ロジック（ΔMeaning）は構造的に明示可能であり、
+      利用者がその判断根拠を追跡できる。
+  - privacy_control: >
+      phase_map_idやログデータは、個人情報と紐づけず、業務改善・自然言語出力最適化のみに使用される。
+
+model:
+  name: Cognitive Distortion Triangle Model (CDTM)
+  description: >
+    人間の再現ノイズを2次元認知空間に座標化し、
+    3点からなる形状（三角形）の面積・相対関係・歪み方を用いて
+    個体識別・人格傾向・状態変動を表現するモデル。
+
+structure:
+  dimensions: 2D plane (x = 構造ノイズ軸, y = 感情・認知ノイズ軸)
+  points_required: 3 (minimum)
+  core_parameters:
+    - point_coordinates: [ (x1, y1), (x2, y2), (x3, y3) ]
+    - absolute_distances_from_axes: [dx1, dy1, dx2, dy2, dx3, dy3]
+    - interpoint_distances: AB, BC, CA
+    - area: S = abs((x1*(y2 - y3) + x2*(y3 - y1) + x3*(y1 - y2)) / 2)
+
+features:
+  - identity_vector: 空間におけるその人のゆらぎ傾向の幾何的記録
+  - reproducibility_check: ノイズ構造が繰り返されるかどうか
+  - deviation_pattern: 面積と変動のトレンド比較による異常検知
+
+applications:
+  - biometric-less authentication
+  - passive behavioral profiling
+  - emotional shift detection
+  - personalized ML fine-tuning
+
+concept:
+  name: Interpretation as Imaginary Axis
+  description: >
+    人間の意味解釈は主観的かつ変動的であり、構造的な実軸と区別されるべき。
+    この揺らぎを「虚軸」として抽象空間に記述することで、
+    解釈の差異・感情の揺れ・認知傾向などを含めた意味の構造的扱いが可能となる。
+
+definition:
+  real_axis: structural meaning (literal, rule-bound)
+  imaginary_axis: subjective interpretation (bias, context, cultural framing)
+
+applications:
+  - ambiguous communication resolution
+  - meaning dissonance detection
+  - persona-based prompt adaptation
+  - cultural context modeling
+  - emotional inference enhancement
+
+mechanism:
+  - user_input: "明日さ、あれ頼むわ"
+  - real_axis_parse: [tomorrow, something, request]
+  - imaginary_axis_inference:
+      - likely_reference: "document submission"
+      - tone_bias: "casual"
+      - uncertainty_level: 0.7
+

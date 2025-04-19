@@ -1,0 +1,125 @@
+translation_engine:
+  version: 1.0
+  meta:
+    name: 構造知性翻訳エンジン
+    author: あなた
+    description: >
+      本モデルは、知識分類と意味保存則に基づいてターゲットに合わせた翻訳とプレゼン生成を行う。
+      第三者が任意の目的で本構造を利用することで、ズレのない説明・資料展開が可能となる。
+
+  classification:
+    knowledge_levels:
+      - level: 1
+        label: 小学生
+        description: "具体事例のみ理解可能。抽象概念不可。"
+      - level: 2
+        label: 中学生
+        description: "簡易な因果や目的理解は可能。構造は困難。"
+      - level: 3
+        label: 高校生
+        description: "手順と基本的構造を理解。比較・選択が可能。"
+      - level: 4
+        label: 大学生
+        description: "意図と構造の関係性理解。抽象的整理が可能。"
+      - level: 5
+        label: 研究者
+        description: "意味保存・抽象圧縮・相互モデル化が可能。"
+
+    knowledge_axes:
+      - id: T
+        name: Tech-Logic
+        description: "構造・数式・因果思考"
+      - id: S
+        name: Human-Semantic
+        description: "感情・言語・揺らぎ補完"
+      - id: P
+        name: Practical
+        description: "手順・実行性・要点把握"
+      - id: C
+        name: Conceptual
+        description: "意図・ズレ・抽象的モデル化"
+
+    translation_patterns:
+      - id: Tech-Heavy
+        required_axes: [T, any, any]
+        shape: 上辺重心型
+        style: "構造から説明し、補完は最小。数式・因果で納得を狙う。"
+        targets: ["技術職", "構造設計者", "エンジニアリーダー"]
+      - id: Human-Heavy
+        required_axes: [S, any, any]
+        shape: 左辺張出型
+        style: "例え・共感・状況補完を多用。ストーリー型。"
+        targets: ["教育者", "作家", "言語系研究者"]
+      - id: Practical-Fusion
+        required_axes: [P, any, any]
+        shape: 下辺安定型
+        style: "行動ベース。課題→施策→成果構成。"
+        targets: ["経営者", "営業", "政策立案者"]
+      - id: Conceptual-Fusion
+        required_axes: [C, any, any]
+        shape: 右辺突出型
+        style: "ズレ・誤解構造から展開し、理論モデルで着地させる。"
+        targets: ["研究者", "AI設計者"]
+      - id: Omni-Fusion
+        required_axes: [T, S, P, C]
+        shape: 正四角形
+        style: "補完最小。抽象圧縮済み出力。再利用・共有前提。"
+        targets: ["構造設計者", "シニアリーダー", "全領域対応型"]
+
+    explanation_log:
+      enabled: true
+      fields:
+        - classification_basis: "頻出語彙がTechに偏っていたため"
+        - h_in_score: 0.78
+        - completion_ratio: 0.22
+        - delta_meaning: 0.04
+
+  output_generation:
+    prompt_style_variants:
+      Tech-Heavy:
+        base: "構造中心"
+        variants:
+          - "構造 → 手順 → 応用"
+          - "目的 → メカニズム → 影響"
+      Human-Heavy:
+        base: "比喩・共感中心"
+        variants:
+          - "物語 → 感情 → 意図"
+          - "悩み → 対話 → 解決"
+
+    application_contexts:
+      - type: 教育資料
+        best_match: Human-Heavy
+      - type: プロダクトピッチ
+        best_match: Practical-Fusion
+      - type: 理論発表
+        best_match: Conceptual-Fusion
+      - type: 汎用設計ドキュメント
+        best_match: Omni-Fusion
+
+    translation_controls:
+      delta_threshold: 0.05
+      explanation_log: true
+      user_override_allowed: true
+      output_flags:
+        show_axes_used: true
+        show_h_in_score: true
+        show_completion_amount: true
+
+    action_template:
+      title: 貴方の出来ること
+      content: >
+        本理論が目指すのは、曖昧なやりとりからの解放と、人とAIの協働による“意味の共有”です。
+        あなたが本構造に可能性を感じたなら、できることがいくつかあります：
+        - 教育・業務・配信・研究への実証活用
+        - アプリ導入・PoC展開
+        - ブログ/SNS/解説動画などでの発信
+        - 金銭支援（クラファン/寄付）
+
+legal_and_ethics:
+  profiling_notice: >
+    本モデルにおけるターゲット分類はユーザー同意またはユーザー入力に基づきます。
+  override_right: >
+    全ての分類・翻訳はユーザーが上書き可能であり、人格評価や格付けを意図しません。
+  explainability: >
+    出力には分類結果、補完量、H_inが明示され、説明責任が確保されます。

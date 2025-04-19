@@ -1,0 +1,120 @@
+model:
+  name: TK_Intent_Preservation_Model
+  description: >
+    入力文の意図明確度に応じて出力補完度を調整する保存則型認知補完モデル。
+    意図明確度 (H_in) と背景補完度 (B_out) の合計を1.0に近づける設計。
+    本モデルは、従来の「意味 = 変化 × 根拠」方程式に基づくズレ検出ロジックと統合され、
+    意味保存ベースで動的に補完強度を調整し、応答の整合性と精度を高めるために使用される。
+
+parameters:
+  intent_clarity_score:
+    symbol: H_in
+    type: float
+    range: [0.0, 1.0]
+    description: >
+      入力文の意図・目的・構造の明確さスコア。
+      認知ベクトル内の Meaning 成分と整合する。
+  background_completion_score:
+    symbol: B_out
+    type: float
+    range: [0.0, 1.0]
+    formula: 1.0 - H_in
+    description: >
+      入力の曖昧さに応じて出力時に補完するべき推論背景情報の度合い。
+      H_in との合計が1.0に収束するよう調整される。
+
+rules:
+  - name: meaning_preservation
+    logic: H_in + B_out ≈ 1.0
+    tolerance: 0.05
+    description: 意味密度の保存則に従い、意味の明確度と補完量の合計を1に保つ。
+  - name: adaptive_completion
+    trigger: H_in < 0.7
+    action: 強めの補完（例示、明確化、再解釈など）を出力に追加
+    fallback: H_in < 0.3 の場合、clarification prompt を優先的に提案
+  - name: minimal_completion
+    trigger: H_in ≥ 0.9
+    action: 出力補完を省略し、簡潔な応答にする
+
+output_guidelines:
+  - completeness: 意図明確度が低い場合は、背景や意図を推論して補完すること
+  - conciseness: 明確な入力には冗長な補足を避け、簡潔に返す
+  - coherence: 意図補完に際して、出力は論理的に整合するよう調整する
+  - delta_alignment: >
+      Meaning, Reason, Change の3軸認知ベクトルの差分 Δ に基づき、出力整合度を再評価し、
+      Δ > 0.05 の場合は再構成または補完強化を実行
+
+integration:
+  cognition_vector_model:
+    vector: [meaning, reason, change]
+    normalization: max-scale (0.0 - 1.0)
+    formula: meaning = change × reason
+    delta_calculation: Δ = actual_meaning - (change × reason)
+    delta_threshold: 0.05
+    alignment_action:
+      if delta <= threshold: proceed
+      else: trigger = "recompose_prompt"
+
+  fact_mapping:
+    coordinate_system: (M_cog, M_fact)
+    interpretation:
+      "+/+" : 共感・納得
+      "+/-" : 誤解・思い込み
+      "-/+" : 過小認知・情報不足
+      "-/-" : 無関心・棄却
+
+examples:
+  - input: "明日さ、あれ頼むわ"
+    H_in: 0.3
+    B_out: 0.7
+    expected_output: >
+      “あれ”が何を指しているのか教えてもらえますか？たとえば、書類の提出のことですか？
+  - input: "明日の会議でAI活用について話してほしい"
+    H_in: 0.95
+    B_out: 0.05
+    expected_output: >
+      了解しました。明日の会議でAI活用について発表します。
+
+notes:
+  - 保存則モデルは、認知ズレ検出（Δ）と補完戦略の橋渡しとして機能する
+  - 意味構造の変形に対して出力の補完量を動的に調整することにより、
+    冗長・過剰・過小な応答を避けることが可能
+  - このモデルは phase_map_id 単位の cognition_log に統合可能
+
+modules:
+  - name: IntentClassifier
+    input: prompt_text
+    output: H_in
+    model: BERT / RoBERTa / custom transformer
+    usage: 補完量決定用の前処理スコア（inference time）
+
+  - name: MeaningEvaluator
+    input: output_vector, change_vector, reason_vector
+    output: ΔMeaning
+    usage: 出力整合性検証・再出力トリガー・学習時損失関数
+
+architecture:
+  preprocessing_module:
+    name: IntentClassifier
+    role: 入力文から意図明確度 H_in を推定し、補完量 B_out を決定する
+    input: prompt_text
+    output: H_in
+    model: transformer_encoder
+    phase: input_preprocessing
+
+  postprocessing_module:
+    name: MeaningEvaluator
+    role: 出力が構造的に意図と一致しているか（ΔMeaning）を検証する
+    input: output_meaning_vector, change, reason
+    output: delta_meaning
+    logic: ΔMeaning = |M_out - (Change × Reason)|
+    phase: output_evaluation
+legal_notes:
+  - purpose_limitation: >
+      本システムにおける意図明確度（H_in）は入力構文の分類に限定されており、
+      ユーザーの個人特性・思想・性格分類を目的としない。
+  - interpretability: >
+      意味補完および出力評価ロジック（ΔMeaning）は構造的に明示可能であり、
+      利用者がその判断根拠を追跡できる。
+  - privacy_control: >
+      phase_map_idやログデータは、個人情報と紐づけず、業務改善・自然言語出力最適化のみに使用される。

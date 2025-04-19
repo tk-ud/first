@@ -1,0 +1,46 @@
+emotion_engine:
+  version: 1.0
+  description: >
+    本モジュールは、ユーザーや出力対象の状態に応じて感情変数（dopamine, stress, z-score）を参照し、
+    出力のテンプレート、補完度、または再構成トリガーに影響を与える“感情駆動型調整エンジン”です。
+
+  variables:
+    - id: dopamine
+      description: "達成・快楽・モチベーションの指標"
+      influence:
+        - "補完スタイルをポジティブ/前向きな言い回しに調整"
+        - "テンプレート選定における活発な出力モード優先"
+
+    - id: stress
+      description: "不安・緊張・過負荷状態の指標"
+      influence:
+        - "補完出力にリスク説明や確認プロンプトを加える"
+        - "応答速度を制御（急がず丁寧な出力誘導）"
+
+    - id: z_score
+      description: "情動スパイク（急激な増減）を検出し、異常反応の抑制・再構成判断に使う"
+      thresholds:
+        positive_spike: 1.5
+        negative_spike: -1.5
+      influence:
+        - "再構成ループの診断引数として phase_map に転送"
+        - "感情的な過補完を抑制する制御信号として扱う"
+
+  output_modulation:
+    mode_switch_thresholds:
+      high_dopamine: 0.7
+      high_stress: 0.6
+    logic:
+      - condition: "dopamine >= 0.7 and stress < 0.4"
+        result: "optimistic-template"
+      - condition: "stress >= 0.6"
+        result: "cautious-template"
+      - condition: "z_score > 1.5 or z_score < -1.5"
+        result: "restructure-phase-check"
+
+  integration:
+    used_by:
+      - translation_engine
+      - cognition_log
+    exposed_to_phase_map: true
+    emotion_log_enabled: true
