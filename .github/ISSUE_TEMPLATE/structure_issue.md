@@ -1,3 +1,11 @@
+---
+name: 構造に関する質問
+about: フェーズや意味構造に関する問い合わせ用
+title: "[構造相談]"
+labels: [structure]
+assignees: tk-ud
+---
+
 # 構造知性翻訳エンジン - GitHub Issue テンプレート（5W1H形式）
 
 以下に沿って記載してください（各項目に箇条書きでもOKです）。
